@@ -1,0 +1,14 @@
+.codex/
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+
+# backend
+backend/target/
+
+# logs and local config
+*.log
+.env
+.idea/
+.vscode/
