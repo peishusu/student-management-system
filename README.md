@@ -19,11 +19,11 @@ database/   MySQL 数据库脚本
 先启动 MySQL，然后依次执行：
 
 ```bash
-mysql -uroot -proot < database/schema.sql
-mysql -uroot -proot < database/seed.sql
+mysql -uroot -p123456 < database/schema.sql
+mysql -uroot -p123456 < database/seed.sql
 ```
 
-如果你的 MySQL 用户名或密码不是 `root/root`，请同步修改 `backend/src/main/resources/application.yml`。
+当前 MySQL 用户名为 `root`，密码为 `123456`。如果你的 MySQL 用户名或密码不同，请同步修改 `backend/src/main/resources/application.yml`。
 
 ## 启动 Redis
 
