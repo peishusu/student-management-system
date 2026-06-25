@@ -1,6 +1,7 @@
 package com.example.student.controller;
 
 import com.example.student.common.ApiResponse;
+import com.example.student.dto.PageResult;
 import com.example.student.dto.StudentQuery;
 import com.example.student.dto.StudentRequest;
 import com.example.student.dto.StudentStats;
@@ -30,7 +31,7 @@ public class StudentController {
     }
 
     @GetMapping
-    public ApiResponse<List<Student>> list(StudentQuery query) {
+    public ApiResponse<PageResult<Student>> list(StudentQuery query) {
         return ApiResponse.success(studentService.list(query));
     }
 

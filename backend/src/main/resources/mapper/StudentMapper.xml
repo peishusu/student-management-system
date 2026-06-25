@@ -24,9 +24,7 @@
         id, student_no, name, gender, age, class_name, phone, email, address, score, status, remark, created_at, updated_at
     </sql>
 
-    <select id="selectList" resultMap="StudentResultMap">
-        select <include refid="BaseColumns"/>
-        from student
+    <sql id="QueryWhere">
         <where>
             <if test="query != null and query.keyword != null and query.keyword != ''">
                 and (
@@ -43,7 +41,26 @@
                 and status = #{query.status}
             </if>
         </where>
+    </sql>
+
+    <select id="selectList" resultMap="StudentResultMap">
+        select <include refid="BaseColumns"/>
+        from student
+        <include refid="QueryWhere"/>
         order by updated_at desc, id desc
+        limit #{query.pageSize} offset #{query.offset}
+    </select>
+
+    <select id="selectAll" resultMap="StudentResultMap">
+        select <include refid="BaseColumns"/>
+        from student
+        order by updated_at desc, id desc
+    </select>
+
+    <select id="countList" resultType="long">
+        select count(*)
+        from student
+        <include refid="QueryWhere"/>
     </select>
 
     <select id="selectById" resultMap="StudentResultMap">

@@ -3,12 +3,13 @@ package com.example.student.service;
 import com.example.student.dto.StudentQuery;
 import com.example.student.dto.StudentRequest;
 import com.example.student.dto.StudentStats;
+import com.example.student.dto.PageResult;
 import com.example.student.entity.Student;
 
 import java.util.List;
 
 public interface StudentService {
-    List<Student> list(StudentQuery query);
+    PageResult<Student> list(StudentQuery query);
 
     Student getById(Long id);
 

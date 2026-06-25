@@ -15,7 +15,7 @@ spring:
     database: 0
     timeout: 3000ms
   cache:
-    type: redis
+    type: ${CACHE_TYPE:simple}
     redis:
       time-to-live: 10m
       cache-null-values: false

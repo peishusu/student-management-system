@@ -108,18 +108,18 @@
           <div class="toolbar">
             <label>
               <span>搜索</span>
-              <input v-model="filters.keyword" placeholder="姓名、学号、班级、电话" @input="loadStudentsSafely" />
+              <input v-model="filters.keyword" placeholder="姓名、学号、班级、电话" @input="resetPageAndLoad" />
             </label>
             <label>
               <span>班级</span>
-              <select v-model="filters.className" @change="loadStudentsSafely">
+              <select v-model="filters.className" @change="resetPageAndLoad">
                 <option value="">全部班级</option>
                 <option v-for="className in classes" :key="className" :value="className">{{ className }}</option>
               </select>
             </label>
             <label>
               <span>状态</span>
-              <select v-model="filters.status" @change="loadStudentsSafely">
+              <select v-model="filters.status" @change="resetPageAndLoad">
                 <option value="">全部状态</option>
                 <option value="在读">在读</option>
                 <option value="休学">休学</option>
@@ -164,6 +164,30 @@
               </tbody>
             </table>
             <div v-if="!students.length" class="empty-state">暂无学生数据</div>
+          </div>
+
+          <div class="pagination-bar">
+            <div class="pagination-summary">
+              共 {{ pagination.total }} 条 / 第 {{ pagination.page }} 页，共 {{ pagination.pages || 1 }} 页
+            </div>
+            <div class="pagination-actions">
+              <button class="ghost-btn" :disabled="pagination.page <= 1" @click="goToPage(pagination.page - 1)">上一页</button>
+              <button
+                v-for="page in pageNumbers"
+                :key="page"
+                class="page-btn"
+                :class="{ active: page === pagination.page }"
+                @click="goToPage(page)"
+              >
+                {{ page }}
+              </button>
+              <button class="ghost-btn" :disabled="pagination.page >= pagination.pages" @click="goToPage(pagination.page + 1)">下一页</button>
+              <select v-model.number="pagination.pageSize" class="page-size-select" @change="changePageSize">
+                <option :value="10">10 条/页</option>
+                <option :value="20">20 条/页</option>
+                <option :value="50">50 条/页</option>
+              </select>
+            </div>
           </div>
         </section>
 
@@ -299,6 +323,13 @@ const filters = reactive({
   status: ''
 })
 
+const pagination = reactive({
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  pages: 0
+})
+
 const emptyForm = {
   id: null,
   studentNo: '',
@@ -319,6 +350,18 @@ const isAuthenticated = computed(() => Boolean(currentUser.value))
 const userInitial = computed(() => {
   const name = currentUser.value?.displayName || currentUser.value?.username || '用'
   return name.slice(0, 1).toUpperCase()
+})
+
+const pageNumbers = computed(() => {
+  const pages = pagination.pages || 1
+  const current = pagination.page
+  const start = Math.max(1, current - 2)
+  const end = Math.min(pages, current + 2)
+  const numbers = []
+  for (let page = start; page <= end; page += 1) {
+    numbers.push(page)
+  }
+  return numbers
 })
 
 const BarList = {
@@ -412,6 +455,9 @@ function clearData() {
   students.value = []
   classes.value = []
   stats.value = {}
+  pagination.page = 1
+  pagination.total = 0
+  pagination.pages = 0
 }
 
 async function refreshAll() {
@@ -427,7 +473,16 @@ async function loadStudentsSafely() {
 }
 
 async function loadStudents() {
-  students.value = await fetchStudents(filters)
+  const result = await fetchStudents({
+    ...filters,
+    page: pagination.page,
+    pageSize: pagination.pageSize
+  })
+  students.value = result.records || []
+  pagination.total = Number(result.total || 0)
+  pagination.page = Number(result.page || 1)
+  pagination.pageSize = Number(result.pageSize || 20)
+  pagination.pages = Number(result.pages || 0)
 }
 
 async function loadStats() {
@@ -442,6 +497,25 @@ function resetFilters() {
   filters.keyword = ''
   filters.className = ''
   filters.status = ''
+  pagination.page = 1
+  loadStudentsSafely()
+}
+
+function resetPageAndLoad() {
+  pagination.page = 1
+  loadStudentsSafely()
+}
+
+function goToPage(page) {
+  const pages = pagination.pages || 1
+  const nextPage = Math.min(Math.max(Number(page) || 1, 1), pages)
+  if (nextPage === pagination.page) return
+  pagination.page = nextPage
+  loadStudentsSafely()
+}
+
+function changePageSize() {
+  pagination.page = 1
   loadStudentsSafely()
 }
 
@@ -479,6 +553,10 @@ async function remove(student) {
     await deleteStudent(student.id)
     showToast('学生已删除')
     await refreshAll()
+    if (!students.value.length && pagination.page > 1) {
+      pagination.page -= 1
+      await loadStudentsSafely()
+    }
   } catch (error) {
     showToast(error.message)
   }

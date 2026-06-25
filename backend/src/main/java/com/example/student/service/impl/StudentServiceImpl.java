@@ -1,5 +1,6 @@
 package com.example.student.service.impl;
 
+import com.example.student.dto.PageResult;
 import com.example.student.dto.StudentQuery;
 import com.example.student.dto.StudentRequest;
 import com.example.student.dto.StudentStats;
@@ -27,9 +28,12 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
-    @Cacheable(value = "student:list", key = "#query == null ? 'all' : (#query.keyword + ':' + #query.className + ':' + #query.status)")
-    public List<Student> list(StudentQuery query) {
-        return studentMapper.selectList(query);
+    @Cacheable(value = "student:list", key = "#query == null ? 'all' : (#query.keyword + ':' + #query.className + ':' + #query.status + ':' + #query.page + ':' + #query.pageSize)")
+    public PageResult<Student> list(StudentQuery query) {
+        StudentQuery safeQuery = query == null ? new StudentQuery() : query;
+        long total = studentMapper.countList(safeQuery);
+        List<Student> records = total == 0 ? java.util.Collections.emptyList() : studentMapper.selectList(safeQuery);
+        return new PageResult<Student>(records, total, safeQuery.getPage(), safeQuery.getPageSize());
     }
 
     @Override
@@ -85,7 +89,7 @@ public class StudentServiceImpl implements StudentService {
     @Override
     @Cacheable(value = "student:stats", key = "'overview'")
     public StudentStats stats() {
-        List<Student> students = studentMapper.selectList(new StudentQuery());
+        List<Student> students = studentMapper.selectAll();
         StudentStats stats = new StudentStats();
         stats.setTotal(students.size());
         stats.setAverageScore(averageScore(students));

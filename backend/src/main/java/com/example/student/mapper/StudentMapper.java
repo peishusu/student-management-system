@@ -9,6 +9,10 @@ import java.util.List;
 public interface StudentMapper {
     List<Student> selectList(@Param("query") StudentQuery query);
 
+    List<Student> selectAll();
+
+    long countList(@Param("query") StudentQuery query);
+
     Student selectById(@Param("id") Long id);
 
     Student selectByStudentNo(@Param("studentNo") String studentNo);
