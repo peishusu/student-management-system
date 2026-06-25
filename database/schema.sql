@@ -4,6 +4,7 @@ create database if not exists student_management
 
 use student_management;
 
+drop table if exists system_user;
 drop table if exists student;
 
 create table student (
@@ -26,3 +27,13 @@ create table student (
   key idx_status (status),
   key idx_score (score)
 ) engine=InnoDB default charset=utf8mb4 comment='学生信息表';
+
+create table system_user (
+  id bigint primary key auto_increment comment '主键',
+  username varchar(32) not null comment '用户名',
+  password_hash varchar(255) not null comment '密码哈希',
+  display_name varchar(50) not null comment '显示名称',
+  created_at datetime not null default current_timestamp comment '创建时间',
+  updated_at datetime not null default current_timestamp on update current_timestamp comment '更新时间',
+  unique key uk_system_user_username (username)
+) engine=InnoDB default charset=utf8mb4 comment='系统用户表';

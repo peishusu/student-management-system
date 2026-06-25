@@ -1,20 +1,6 @@
+import { request } from './request'
+
 const API_BASE = '/api/students'
-
-async function request(url, options = {}) {
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
-    ...options
-  })
-
-  const result = await response.json()
-  if (!response.ok || result.code !== 200) {
-    throw new Error(result.message || '请求失败')
-  }
-  return result.data
-}
 
 export function fetchStudents(params = {}) {
   const query = new URLSearchParams()

@@ -27,6 +27,11 @@ mybatis:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
+auth:
+  token:
+    secret: ${AUTH_TOKEN_SECRET:student-management-local-dev-secret-change-before-production}
+    expire-minutes: 120
+
 logging:
   level:
     com.example.student.mapper: debug
