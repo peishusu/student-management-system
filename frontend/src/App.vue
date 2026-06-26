@@ -60,7 +60,7 @@
         </div>
 
         <nav class="nav-list">
-          <button :class="{ active: view === 'students' }" @click="view = 'students'">学生档案</button>
+          <button :class="{ active: view === 'students' || view === 'studentDetail' }" @click="backToStudents">学生档案</button>
           <button :class="{ active: view === 'stats' }" @click="view = 'stats'">统计分析</button>
           <button :class="{ active: view === 'database' }" @click="view = 'database'">数据库说明</button>
         </nav>
@@ -156,6 +156,7 @@
                   <td><span class="badge" :class="statusClass(student.status)">{{ student.status }}</span></td>
                   <td>
                     <div class="row-actions">
+                      <button @click="openDetail(student)">查看</button>
                       <button @click="openEdit(student)">编辑</button>
                       <button class="danger-text" @click="remove(student)">删除</button>
                     </div>
@@ -189,6 +190,62 @@
               </select>
             </div>
           </div>
+        </section>
+
+        <section v-if="view === 'studentDetail'" class="detail-shell">
+          <div v-if="detailLoading" class="panel detail-loading">正在加载学生详情...</div>
+          <div v-else-if="selectedStudent" class="detail-card">
+            <div class="detail-head">
+              <div class="detail-avatar">{{ detailInitial }}</div>
+              <div class="detail-title">
+                <span class="detail-no">{{ selectedStudent.studentNo }}</span>
+                <h3>{{ selectedStudent.name }}</h3>
+                <div class="detail-tags">
+                  <span class="badge" :class="statusClass(selectedStudent.status)">{{ selectedStudent.status }}</span>
+                  <span>{{ selectedStudent.gender }}</span>
+                  <span>{{ selectedStudent.age }} 岁</span>
+                  <span>{{ selectedStudent.className }}</span>
+                </div>
+              </div>
+              <div class="detail-actions">
+                <button class="ghost-btn" @click="backToStudents">返回列表</button>
+                <button class="primary-btn" @click="openEdit(selectedStudent)">编辑资料</button>
+              </div>
+            </div>
+
+            <div class="detail-score">
+              <span>综合成绩</span>
+              <strong>{{ selectedStudent.score }}</strong>
+            </div>
+
+            <div class="detail-grid">
+              <article>
+                <span>电话</span>
+                <strong>{{ selectedStudent.phone }}</strong>
+              </article>
+              <article>
+                <span>邮箱</span>
+                <strong>{{ selectedStudent.email || '未填写' }}</strong>
+              </article>
+              <article>
+                <span>地址</span>
+                <strong>{{ selectedStudent.address || '未填写' }}</strong>
+              </article>
+              <article>
+                <span>备注</span>
+                <strong>{{ selectedStudent.remark || '无' }}</strong>
+              </article>
+              <article>
+                <span>创建时间</span>
+                <strong>{{ formatDateTime(selectedStudent.createdAt) }}</strong>
+              </article>
+              <article>
+                <span>更新时间</span>
+                <strong>{{ formatDateTime(selectedStudent.updatedAt) }}</strong>
+              </article>
+            </div>
+          </div>
+          <div v-else class="panel detail-loading">未找到学生详情</div>
         </section>
 
         <section v-if="view === 'stats'" class="analytics-layout">
@@ -290,10 +347,11 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { clearSession, fetchCurrentUser, getSession, login, register, setAuthFailureHandler } from './api/auth'
-import { createStudent, deleteStudent, fetchClasses, fetchStats, fetchStudents, updateStudent } from './api/students'
+import { createStudent, deleteStudent, fetchClasses, fetchStats, fetchStudent, fetchStudents, updateStudent } from './api/students'
 
 const titles = {
   students: '学生档案',
+  studentDetail: '学生详情',
   stats: '统计分析',
   database: '数据库说明'
 }
@@ -309,6 +367,8 @@ const classes = ref([])
 const stats = ref({})
 const toast = ref('')
 const dialogVisible = ref(false)
+const detailLoading = ref(false)
+const selectedStudent = ref(null)
 
 const authForm = reactive({
   username: '',
@@ -349,6 +409,11 @@ const form = reactive({ ...emptyForm })
 const isAuthenticated = computed(() => Boolean(currentUser.value))
 const userInitial = computed(() => {
   const name = currentUser.value?.displayName || currentUser.value?.username || '用'
+  return name.slice(0, 1).toUpperCase()
+})
+
+const detailInitial = computed(() => {
+  const name = selectedStudent.value?.name || '学'
   return name.slice(0, 1).toUpperCase()
 })
 
@@ -455,6 +520,7 @@ function clearData() {
   students.value = []
   classes.value = []
   stats.value = {}
+  selectedStudent.value = null
   pagination.page = 1
   pagination.total = 0
   pagination.pages = 0
@@ -519,6 +585,25 @@ function changePageSize() {
   loadStudentsSafely()
 }
 
+async function openDetail(student) {
+  detailLoading.value = true
+  selectedStudent.value = student
+  view.value = 'studentDetail'
+  try {
+    selectedStudent.value = await fetchStudent(student.id)
+  } catch (error) {
+    showToast(error.message)
+    view.value = 'students'
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function backToStudents() {
+  view.value = 'students'
+  selectedStudent.value = null
+}
+
 function openCreate() {
   Object.assign(form, emptyForm)
   dialogVisible.value = true
@@ -542,6 +627,9 @@ async function save() {
     }
     dialogVisible.value = false
     await refreshAll()
+    if (view.value === 'studentDetail' && form.id) {
+      selectedStudent.value = await fetchStudent(form.id)
+    }
   } catch (error) {
     showToast(error.message)
   }
@@ -566,6 +654,13 @@ function statusClass(status) {
   if (status === '休学') return 'paused'
   if (status === '毕业') return 'done'
   return 'active'
+}
+
+function formatDateTime(value) {
+  if (!value) return '未记录'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 function showToast(message) {

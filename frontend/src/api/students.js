@@ -11,6 +11,10 @@ export function fetchStudents(params = {}) {
   return request(`${API_BASE}${suffix}`)
 }
 
+export function fetchStudent(id) {
+  return request(`${API_BASE}/${id}`)
+}
+
 export function fetchStats() {
   return request(`${API_BASE}/stats`)
 }
