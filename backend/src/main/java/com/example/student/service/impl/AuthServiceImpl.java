@@ -2,6 +2,7 @@ package com.example.student.service.impl;
 
 import com.example.student.dto.AuthResponse;
 import com.example.student.dto.AuthUser;
+import com.example.student.dto.ChangePasswordRequest;
 import com.example.student.dto.LoginRequest;
 import com.example.student.dto.RegisterRequest;
 import com.example.student.entity.SystemUser;
@@ -44,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
         SystemUser user = new SystemUser();
         user.setUsername(username);
         user.setDisplayName(request.getDisplayName().trim());
+        user.setRole(normalizeRole(request.getRole()));
         user.setPasswordHash(passwordService.hash(request.getPassword()));
         userMapper.insert(user);
         return authResponse(user);
@@ -64,7 +66,34 @@ public class AuthServiceImpl implements AuthService {
         if (user == null) {
             throw new UnauthorizedException("请先登录");
         }
-        return new AuthUser(user.getId(), user.getUsername(), user.getDisplayName());
+        return new AuthUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole());
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        AuthenticatedUser current = requireCurrentUser();
+        SystemUser user = userMapper.selectById(current.getId());
+        if (user == null) {
+            throw new UnauthorizedException("请先登录");
+        }
+        if (!passwordService.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BusinessException("当前密码错误");
+        }
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException("两次输入的新密码不一致");
+        }
+        if (passwordService.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new BusinessException("新密码不能与当前密码相同");
+        }
+        userMapper.updatePasswordAndIncreaseTokenVersion(user.getId(), passwordService.hash(request.getNewPassword()));
+    }
+
+    @Override
+    @Transactional
+    public void logout() {
+        AuthenticatedUser current = requireCurrentUser();
+        userMapper.increaseTokenVersion(current.getId());
     }
 
     private AuthResponse authResponse(SystemUser user) {
@@ -72,11 +101,26 @@ public class AuthServiceImpl implements AuthService {
         return new AuthResponse(
                 issuedToken.getToken(),
                 issuedToken.getExpiresAt(),
-                new AuthUser(user.getId(), user.getUsername(), user.getDisplayName())
+                new AuthUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole())
         );
     }
 
     private String normalizeUsername(String username) {
         return username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null || role.trim().isEmpty()) {
+            return "VIEWER";
+        }
+        return role.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private AuthenticatedUser requireCurrentUser() {
+        AuthenticatedUser user = AuthContext.get();
+        if (user == null) {
+            throw new UnauthorizedException("请先登录");
+        }
+        return user;
     }
 }

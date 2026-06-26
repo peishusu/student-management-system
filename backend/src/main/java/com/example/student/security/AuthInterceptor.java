@@ -44,7 +44,12 @@ public class AuthInterceptor implements HandlerInterceptor {
                 writeUnauthorized(response, "登录状态无效，请重新登录");
                 return false;
             }
-            AuthContext.set(new AuthenticatedUser(user.getId(), user.getUsername(), user.getDisplayName()));
+            int tokenVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
+            if (tokenUser.getTokenVersion() != tokenVersion) {
+                writeUnauthorized(response, "登录状态已失效，请重新登录");
+                return false;
+            }
+            AuthContext.set(new AuthenticatedUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getRole(), tokenVersion));
             return true;
         } catch (UnauthorizedException exception) {
             writeUnauthorized(response, exception.getMessage());

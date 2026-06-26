@@ -41,6 +41,8 @@ public class TokenService {
         payload.put("sub", user.getId());
         payload.put("username", user.getUsername());
         payload.put("displayName", user.getDisplayName());
+        payload.put("role", user.getRole());
+        payload.put("tokenVersion", safeTokenVersion(user));
         payload.put("iat", now);
         payload.put("exp", expiresAt);
 
@@ -76,7 +78,9 @@ public class TokenService {
         return new AuthenticatedUser(
                 number(payload.get("sub")),
                 string(payload.get("username")),
-                string(payload.get("displayName"))
+                string(payload.get("displayName")),
+                string(payload.get("role")),
+                payload.containsKey("tokenVersion") ? (int) number(payload.get("tokenVersion")) : -1
         );
     }
 
@@ -131,6 +135,10 @@ public class TokenService {
             return ((Number) value).longValue();
         }
         return Long.parseLong(String.valueOf(value));
+    }
+
+    private int safeTokenVersion(SystemUser user) {
+        return user.getTokenVersion() == null ? 0 : user.getTokenVersion();
     }
 
     public static class IssuedToken {

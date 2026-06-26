@@ -9,4 +9,8 @@ public interface UserMapper {
     SystemUser selectByUsername(@Param("username") String username);
 
     int insert(SystemUser user);
+
+    int updatePasswordAndIncreaseTokenVersion(@Param("id") Long id, @Param("passwordHash") String passwordHash);
+
+    int increaseTokenVersion(@Param("id") Long id);
 }

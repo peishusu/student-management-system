@@ -25,6 +25,15 @@
           <input v-model.trim="authForm.displayName" autocomplete="name" placeholder="例如：教务管理员" required />
         </label>
 
+        <label v-if="authMode === 'register'">
+          <span>角色</span>
+          <select v-model="authForm.role" required>
+            <option value="ADMIN">管理员</option>
+            <option value="TEACHER">教师</option>
+            <option value="VIEWER">只读用户</option>
+          </select>
+        </label>
+
         <label>
           <span>密码</span>
           <input
@@ -73,14 +82,15 @@
             <h2>{{ titles[view] }}</h2>
           </div>
           <div class="topbar-actions">
-            <button v-if="view === 'students'" class="primary-btn" @click="openCreate">新增学生</button>
+            <button v-if="view === 'students' && canCreateStudent" class="primary-btn" @click="openCreate">新增学生</button>
             <div class="user-chip" :title="currentUser.username">
               <span>{{ userInitial }}</span>
               <div>
                 <strong>{{ currentUser.displayName }}</strong>
-                <small>@{{ currentUser.username }}</small>
+                <small>{{ currentRoleLabel }} · @{{ currentUser.username }}</small>
               </div>
             </div>
+            <button class="ghost-btn" @click="openPasswordDialog">修改密码</button>
             <button class="ghost-btn" @click="logout">退出</button>
           </div>
         </header>
@@ -157,8 +167,8 @@
                   <td>
                     <div class="row-actions">
                       <button @click="openDetail(student)">查看</button>
-                      <button @click="openEdit(student)">编辑</button>
-                      <button class="danger-text" @click="remove(student)">删除</button>
+                      <button v-if="canEditStudent" @click="openEdit(student)">编辑</button>
+                      <button v-if="canDeleteStudent" class="danger-text" @click="remove(student)">删除</button>
                     </div>
                   </td>
                 </tr>
@@ -209,7 +219,7 @@
               </div>
               <div class="detail-actions">
                 <button class="ghost-btn" @click="backToStudents">返回列表</button>
-                <button class="primary-btn" @click="openEdit(selectedStudent)">编辑资料</button>
+                <button v-if="canEditStudent" class="primary-btn" @click="openEdit(selectedStudent)">编辑资料</button>
               </div>
             </div>
 
@@ -338,6 +348,45 @@
           </div>
         </form>
       </div>
+
+      <div v-if="passwordDialogVisible" class="modal-backdrop">
+        <form class="modal password-modal" @submit.prevent="submitPasswordChange">
+          <div class="modal-head">
+            <h3>修改密码</h3>
+            <button type="button" class="icon-btn" @click="closePasswordDialog">×</button>
+          </div>
+
+          <div class="form-grid password-form">
+            <label class="full">
+              <span>当前密码</span>
+              <input v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" required />
+            </label>
+            <label>
+              <span>新密码</span>
+              <input
+                v-model="passwordForm.newPassword"
+                type="password"
+                autocomplete="new-password"
+                placeholder="至少 8 位，包含字母和数字"
+                required
+              />
+            </label>
+            <label>
+              <span>确认新密码</span>
+              <input v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" required />
+            </label>
+          </div>
+
+          <p v-if="passwordError" class="auth-error">{{ passwordError }}</p>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn" @click="closePasswordDialog">取消</button>
+            <button type="submit" class="primary-btn" :disabled="passwordLoading">
+              {{ passwordLoading ? '保存中...' : '保存并重新登录' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div v-if="toast" class="toast">{{ toast }}</div>
@@ -346,7 +395,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { clearSession, fetchCurrentUser, getSession, login, register, setAuthFailureHandler } from './api/auth'
+import { changePassword, clearSession, fetchCurrentUser, getSession, login, logoutSession, register, setAuthFailureHandler } from './api/auth'
 import { createStudent, deleteStudent, fetchClasses, fetchStats, fetchStudent, fetchStudents, updateStudent } from './api/students'
 
 const titles = {
@@ -369,10 +418,14 @@ const toast = ref('')
 const dialogVisible = ref(false)
 const detailLoading = ref(false)
 const selectedStudent = ref(null)
+const passwordDialogVisible = ref(false)
+const passwordLoading = ref(false)
+const passwordError = ref('')
 
 const authForm = reactive({
   username: '',
   displayName: '',
+  role: 'VIEWER',
   password: '',
   confirmPassword: ''
 })
@@ -381,6 +434,12 @@ const filters = reactive({
   keyword: '',
   className: '',
   status: ''
+})
+
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
 })
 
 const pagination = reactive({
@@ -416,6 +475,12 @@ const detailInitial = computed(() => {
   const name = selectedStudent.value?.name || '学'
   return name.slice(0, 1).toUpperCase()
 })
+
+const currentRole = computed(() => currentUser.value?.role || 'VIEWER')
+const currentRoleLabel = computed(() => roleLabel(currentRole.value))
+const canCreateStudent = computed(() => currentRole.value === 'ADMIN' || currentRole.value === 'TEACHER')
+const canEditStudent = computed(() => currentRole.value === 'ADMIN' || currentRole.value === 'TEACHER')
+const canDeleteStudent = computed(() => currentRole.value === 'ADMIN')
 
 const pageNumbers = computed(() => {
   const pages = pagination.pages || 1
@@ -491,6 +556,7 @@ function switchAuthMode(mode) {
 function clearAuthForm() {
   authForm.username = ''
   authForm.displayName = ''
+  authForm.role = 'VIEWER'
   authForm.password = ''
   authForm.confirmPassword = ''
 }
@@ -507,13 +573,21 @@ async function restoreSession() {
   }
 }
 
-function logout() {
-  clearSession()
-  currentUser.value = null
-  clearData()
-  view.value = 'students'
-  dialogVisible.value = false
-  showToast('已退出登录')
+async function logout() {
+  try {
+    await logoutSession()
+  } catch (error) {
+    showToast(error.message)
+  } finally {
+    clearSession()
+    currentUser.value = null
+    clearData()
+    view.value = 'students'
+    dialogVisible.value = false
+    passwordDialogVisible.value = false
+    clearPasswordForm()
+    showToast('已退出登录')
+  }
 }
 
 function clearData() {
@@ -585,6 +659,42 @@ function changePageSize() {
   loadStudentsSafely()
 }
 
+function openPasswordDialog() {
+  clearPasswordForm()
+  passwordDialogVisible.value = true
+}
+
+function closePasswordDialog() {
+  passwordDialogVisible.value = false
+  clearPasswordForm()
+}
+
+async function submitPasswordChange() {
+  passwordLoading.value = true
+  passwordError.value = ''
+  try {
+    await changePassword({ ...passwordForm })
+    clearSession()
+    currentUser.value = null
+    clearData()
+    view.value = 'students'
+    passwordDialogVisible.value = false
+    clearPasswordForm()
+    showToast('密码已修改，请重新登录')
+  } catch (error) {
+    passwordError.value = error.message
+  } finally {
+    passwordLoading.value = false
+  }
+}
+
+function clearPasswordForm() {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  passwordError.value = ''
+}
+
 async function openDetail(student) {
   detailLoading.value = true
   selectedStudent.value = student
@@ -605,11 +715,19 @@ function backToStudents() {
 }
 
 function openCreate() {
+  if (!canCreateStudent.value) {
+    showToast('当前角色无权新增学生')
+    return
+  }
   Object.assign(form, emptyForm)
   dialogVisible.value = true
 }
 
 function openEdit(student) {
+  if (!canEditStudent.value) {
+    showToast('当前角色无权编辑学生')
+    return
+  }
   Object.assign(form, student)
   dialogVisible.value = true
 }
@@ -636,6 +754,10 @@ async function save() {
 }
 
 async function remove(student) {
+  if (!canDeleteStudent.value) {
+    showToast('当前角色无权删除学生')
+    return
+  }
   if (!confirm(`确定删除 ${student.name} 吗？`)) return
   try {
     await deleteStudent(student.id)
@@ -661,6 +783,12 @@ function formatDateTime(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('zh-CN', { hour12: false })
+}
+
+function roleLabel(role) {
+  if (role === 'ADMIN') return '管理员'
+  if (role === 'TEACHER') return '教师'
+  return '只读用户'
 }
 
 function showToast(message) {

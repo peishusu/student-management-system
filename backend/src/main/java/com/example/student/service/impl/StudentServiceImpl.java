@@ -6,7 +6,10 @@ import com.example.student.dto.StudentRequest;
 import com.example.student.dto.StudentStats;
 import com.example.student.entity.Student;
 import com.example.student.exception.BusinessException;
+import com.example.student.exception.ForbiddenException;
 import com.example.student.mapper.StudentMapper;
+import com.example.student.security.AuthContext;
+import com.example.student.security.AuthenticatedUser;
 import com.example.student.service.StudentService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -50,6 +53,7 @@ public class StudentServiceImpl implements StudentService {
     @Transactional
     @CacheEvict(value = {"student:list", "student:detail", "student:classNames", "student:stats"}, allEntries = true)
     public Student create(StudentRequest request) {
+        assertCanWrite("当前角色无权新增学生");
         assertStudentNoAvailable(request.getStudentNo(), null);
         Student student = toEntity(request);
         studentMapper.insert(student);
@@ -60,6 +64,7 @@ public class StudentServiceImpl implements StudentService {
     @Transactional
     @CacheEvict(value = {"student:list", "student:detail", "student:classNames", "student:stats"}, allEntries = true)
     public Student update(Long id, StudentRequest request) {
+        assertCanWrite("当前角色无权编辑学生");
         Student old = studentMapper.selectById(id);
         if (old == null) {
             throw new BusinessException("学生不存在");
@@ -75,6 +80,7 @@ public class StudentServiceImpl implements StudentService {
     @Transactional
     @CacheEvict(value = {"student:list", "student:detail", "student:classNames", "student:stats"}, allEntries = true)
     public void delete(Long id) {
+        assertCanDelete();
         if (studentMapper.deleteById(id) == 0) {
             throw new BusinessException("学生不存在");
         }
@@ -105,6 +111,24 @@ public class StudentServiceImpl implements StudentService {
         if (existing != null && !existing.getId().equals(currentId)) {
             throw new BusinessException("学号已存在");
         }
+    }
+
+    private void assertCanWrite(String message) {
+        String role = currentRole();
+        if (!"ADMIN".equals(role) && !"TEACHER".equals(role)) {
+            throw new ForbiddenException(message);
+        }
+    }
+
+    private void assertCanDelete() {
+        if (!"ADMIN".equals(currentRole())) {
+            throw new ForbiddenException("当前角色无权删除学生");
+        }
+    }
+
+    private String currentRole() {
+        AuthenticatedUser user = AuthContext.get();
+        return user == null || user.getRole() == null ? "VIEWER" : user.getRole();
     }
 
     private Student toEntity(StudentRequest request) {

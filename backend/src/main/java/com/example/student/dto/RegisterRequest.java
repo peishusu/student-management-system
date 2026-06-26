@@ -21,6 +21,9 @@ public class RegisterRequest {
     @NotBlank(message = "确认密码不能为空")
     private String confirmPassword;
 
+    @Pattern(regexp = "^(ADMIN|TEACHER|VIEWER)$", message = "角色只能是管理员、教师或只读用户")
+    private String role;
+
     public String getUsername() {
         return username;
     }
@@ -51,5 +54,13 @@ public class RegisterRequest {
 
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 }

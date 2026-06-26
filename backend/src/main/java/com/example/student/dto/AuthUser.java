@@ -4,14 +4,16 @@ public class AuthUser {
     private Long id;
     private String username;
     private String displayName;
+    private String role;
 
     public AuthUser() {
     }
 
-    public AuthUser(Long id, String username, String displayName) {
+    public AuthUser(Long id, String username, String displayName, String role) {
         this.id = id;
         this.username = username;
         this.displayName = displayName;
+        this.role = role;
     }
 
     public Long getId() {
@@ -36,5 +38,13 @@ public class AuthUser {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 }

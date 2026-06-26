@@ -3,6 +3,7 @@ package com.example.student.controller;
 import com.example.student.common.ApiResponse;
 import com.example.student.dto.AuthResponse;
 import com.example.student.dto.AuthUser;
+import com.example.student.dto.ChangePasswordRequest;
 import com.example.student.dto.LoginRequest;
 import com.example.student.dto.RegisterRequest;
 import com.example.student.service.AuthService;
@@ -38,5 +39,17 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<AuthUser> me() {
         return ApiResponse.success(authService.currentUser());
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ApiResponse.success("密码修改成功，请重新登录", null);
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout() {
+        authService.logout();
+        return ApiResponse.success("退出成功", null);
     }
 }

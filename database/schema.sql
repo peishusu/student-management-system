@@ -33,7 +33,10 @@ create table system_user (
   username varchar(32) not null comment '用户名',
   password_hash varchar(255) not null comment '密码哈希',
   display_name varchar(50) not null comment '显示名称',
+  role varchar(20) not null default 'VIEWER' comment '角色：ADMIN、TEACHER、VIEWER',
+  token_version int not null default 0 comment '令牌版本，修改密码或退出登录后递增',
   created_at datetime not null default current_timestamp comment '创建时间',
   updated_at datetime not null default current_timestamp on update current_timestamp comment '更新时间',
+  key idx_system_user_role (role),
   unique key uk_system_user_username (username)
 ) engine=InnoDB default charset=utf8mb4 comment='系统用户表';

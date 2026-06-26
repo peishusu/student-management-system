@@ -27,3 +27,16 @@ export async function fetchCurrentUser() {
   saveSessionUser(user)
   return user
 }
+
+export function changePassword(payload) {
+  return request('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function logoutSession() {
+  return request('/api/auth/logout', {
+    method: 'POST'
+  })
+}
